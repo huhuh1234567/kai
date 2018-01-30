@@ -1,0 +1,270 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>TEST COLLISION</title>
+	<script type="text/javascript" src="../kload-web.js"></script>
+	<script type="text/javascript" src="../dependency.kload.js"></script>
+</head>
+<body>
+<script type="text/javascript">
+	load(["kai/k","kai/k-css","kai/k-dom-mouse","kai/k-gc","kai/k2d-util"],{
+		"kai": DEPENDENCIES.K
+	},{
+		"kai": ".."
+	},function(){
+
+		var K = imports("kai/k");
+		var loop = K.loop;
+		var loopArray = K.loopArray;
+		var loopObject = K.loopObject;
+
+		var K_CSS = imports("kai/k-css");
+		var css = K_CSS.css;
+
+		var K_GC = imports("kai/k-gc");
+		var StrokePath = K_GC.StrokePath;
+		var strokeCircle = K_GC.strokeCircle;
+		var strokeCone = K_GC.strokeCone;
+
+		var K_DOM_MOUSE = imports("kai/k-dom-mouse");
+		var onClick = K_DOM_MOUSE.onClick;
+		var onMouseMove = K_DOM_MOUSE.onMouseMove;
+
+		var K2D_UTIL = imports("kai/k2d-util");
+		var overlapCircle = K2D_UTIL.overlapCircle;
+		var overlapCone = K2D_UTIL.overlapCone;
+		var overlapConvex = K2D_UTIL.overlapConvex;
+		var overlapCircleCone = K2D_UTIL.overlapCircleCone;
+		var overlapConvexCircle = K2D_UTIL.overlapConvexCircle;
+
+		var canvas = document.createElement("canvas");
+		document.body.appendChild(canvas);
+		var gc = canvas.getContext("2d");
+		canvas.width = 400;
+		canvas.height = 300;
+		css(canvas,{
+			"position": "absolute",
+			"left": "0px",
+			"top": "0px"
+		});
+
+		var shapes = [];
+
+		var shapeTemplates = {
+			"circle": {
+				setter: [
+					function(shape,x,y){
+						shape.x = x;
+						shape.y = y;
+						shape.r = 0;
+					},
+					function(shape,x,y){
+						var dx = x-shape.x;
+						var dy = y-shape.y;
+						shape.r = Math.sqrt(dx*dx+dy*dy);
+					}
+				],
+				draw: function(gc,shape){
+					gc.save();
+					gc.translate(shape.x,shape.y);
+					strokeCircle(gc,shape.r,"#000000",1);
+					gc.restore();
+				}
+			},
+			"cone": {
+				setter: [
+					function(shape,x,y){
+						shape.x = x;
+						shape.y = y;
+						shape.r = 0;
+						shape.ba = 0;
+						shape.ea = 0;
+					},
+					function(shape,x,y){
+						var dx = x-shape.x;
+						var dy = y-shape.y;
+						shape.r = Math.sqrt(dx*dx+dy*dy);
+						shape.ba = Math.atan2(dy,dx);
+						shape.ea = shape.ba;
+					},
+					function(shape,x,y){
+						var dx = x-shape.x;
+						var dy = y-shape.y;
+						shape.ea = Math.atan2(dy,dx);
+						while(shape.ea<shape.ba){
+							shape.ea += Math.PI*2;
+						}
+					}
+				],
+				draw: function(gc,shape){
+					gc.save();
+					gc.translate(shape.x,shape.y);
+					strokeCone(gc,shape.r,shape.ba,shape.ea,"#000000",1);
+					gc.restore();
+				}
+			},
+			"polygon": {
+				setter: [
+					function(shape,x,y){
+						shape.x1 = x;
+						shape.y1 = y;
+						shape.x2 = x;
+						shape.y2 = y;
+						shape.x3 = x;
+						shape.y3 = y;
+						shape.x4 = x;
+						shape.y4 = y;
+					},
+					function(shape,x,y){
+						shape.x2 = x;
+						shape.y2 = y;
+						shape.x3 = x;
+						shape.y3 = y;
+						shape.x4 = x;
+						shape.y4 = y;
+					},
+					function(shape,x,y){
+						shape.x3 = x;
+						shape.y3 = y;
+						shape.x4 = x;
+						shape.y4 = y;
+					},
+					function(shape,x,y){
+						shape.x4 = x;
+						shape.y4 = y;
+					}
+				],
+				draw: function(gc,shape){
+					StrokePath(function(gc,shape){
+						gc.moveTo(shape.x1,shape.y1);
+						gc.lineTo(shape.x2,shape.y2);
+						gc.lineTo(shape.x3,shape.y3);
+						gc.lineTo(shape.x4,shape.y4);
+						gc.lineTo(shape.x1,shape.y1);
+					})(gc,shape,"#000000",1);
+				}
+			}
+		};
+		var collisionTemplate = {
+			"circle": {
+				"circle": function(s1,s2){
+					return overlapCircle(s1.x,s1.y,s1.r,s2.x,s2.y,s2.r);
+				},
+				"cone": function(s1,s2){
+					return overlapCircleCone(s1.x,s1.y,s1.r,s2.x,s2.y,s2.r,(s2.ea+s2.ba)/2,(s2.ea-s2.ba)/2);
+				},
+				"polygon": function(s1,s2){
+					return false;
+				}
+			},
+			"cone": {
+				"circle": function(s1,s2){
+					return overlapCircleCone(s2.x,s2.y,s2.r,s1.x,s1.y,s1.r,(s1.ea+s1.ba)/2,(s1.ea-s1.ba)/2);
+				},
+				"cone": function(s1,s2){
+					return overlapCone(s1.x,s1.y,s1.r,(s1.ea+s1.ba)/2,(s1.ea-s1.ba)/2,s2.x,s2.y,s2.r,(s2.ea+s2.ba)/2,(s2.ea-s2.ba)/2);
+				},
+				"polygon": function(s1,s2){
+					return false;
+				}
+			},
+			"polygon": {
+				"circle": function(s1,s2){
+					return false;
+				},
+				"cone": function(s1,s2){
+					return false;
+				},
+				"polygon": function(s1,s2){
+					return false;
+				}
+			}
+		};
+
+		var BUTTON_WIDTH = 150;
+		var BUTTON_HEIGHT = 40;
+		var MARGIN = 10;
+
+		var current = -1;
+
+		loop(2,function(i){
+			var frame = document.createElement("div");
+			document.body.appendChild(frame);
+			css(frame,{
+				"position": "absolute",
+				"left": (canvas.width+MARGIN+(BUTTON_WIDTH+MARGIN)*i)+"px",
+				"top": "0px",
+				"width": BUTTON_WIDTH+"px",
+				"height": (BUTTON_HEIGHT+2*MARGIN)+"px"
+			});
+			loopObject(shapeTemplates,function(name,tpl){
+				var button = document.createElement("div");
+				frame.appendChild(button);
+				css(button,{
+					"margin-top": MARGIN+"px",
+					"margin-bottom": MARGIN+"px",
+					"width": BUTTON_WIDTH+"px",
+					"height": BUTTON_HEIGHT+"px",
+					"background-color": "#0080FF",
+					"color": "#FFFFFF"
+				});
+				button.innerHTML = name;
+				onClick(button,function(){
+					current = i;
+					shapes[i] = {
+						type: name,
+						status: 0
+					};
+					shapeTemplates[name].setter[0](shapes[i],0,0);
+				});
+			});
+		});
+
+		onMouseMove(canvas,function(e){
+			if(current>=0){
+				var s = shapes[current];
+				if(s.status>0){
+					shapeTemplates[s.type].setter[s.status](s,e.pageX,e.pageY);
+				}
+			}
+		});
+		onClick(canvas,function(e){
+			if(current>=0){
+				var s = shapes[current];
+				if(s.status>=0){
+					shapeTemplates[s.type].setter[s.status](s,e.pageX,e.pageY);
+				}
+				s.status = (s.status+1)%shapeTemplates[s.type].setter.length;
+			}
+		});
+
+		var display = document.createElement("div");
+		document.body.appendChild(display);
+		css(display,{
+			"position": "absolute",
+			"left": "0px",
+			"top": canvas.height+"px",
+			"background-color": "#C0E0FF"
+		});
+
+		(function draw(){
+			gc.fillStyle = "#F0F0F0";
+			gc.fillRect(0,0,canvas.width,canvas.height);
+			loopArray(shapes,function(s){
+				shapeTemplates[s.type].draw(gc,s);
+			});
+			display.innerHTML = "";
+			loopArray(shapes,function(s1,i){
+				loopArray(shapes,function(s2,j){
+					if(i<j&&collisionTemplate[s1.type][s2.type](s1,s2)){
+						display.innerHTML += " ["+i+","+j+"] ";
+					}
+				});
+			});
+			setTimeout(draw,30);
+		})();
+	});
+</script>
+</body>
+</html>

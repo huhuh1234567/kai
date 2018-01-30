@@ -1,0 +1,61 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>TEST DOM BUTTON</title>
+	<script type="text/javascript" src="../kload-web.js"></script>
+	<script type="text/javascript" src="../dependency.kload.js"></script>
+</head>
+<body>
+<script type="text/javascript">
+	load(["kai/k-css-util","kai/k-dom-mouse","kai/kw"],{
+		"kai": DEPENDENCIES.K
+	},{
+		"kai": ".."
+	},function(){
+
+		var K_CSS_UTIL = imports("kai/k-css-util");
+		var setPositionAbsolute = K_CSS_UTIL.setPositionAbsolute;
+
+		var K_DOM_MOUSE = imports("kai/k-dom-mouse");
+		var onClick = K_DOM_MOUSE.onClick;
+
+		var KW = imports("kai/kw");
+		var Button = KW.Button;
+		var RateBar = KW.RateBar;
+
+		var btn = Button({
+			width: 60,
+			height: 30
+		});
+		document.body.appendChild(btn);
+		setPositionAbsolute(btn,100,100);
+		btn.$value = "确定";
+
+		onClick(btn,function(){
+			btn.$disabled = true;
+			console.log("disable");
+			var bar = RateBar({
+				width: 240,
+				height: 20,
+				value: 1
+			});
+			document.body.appendChild(bar);
+			setPositionAbsolute(bar,10,150);
+			(function down(){
+				if(bar.$value>0.1){
+					bar.$value -= 0.1;
+					setTimeout(down,330);
+				}
+				else{
+					btn.$disabled = false;
+					console.log("enable");
+					document.body.removeChild(bar);
+				}
+			})();
+		});
+
+	});
+</script>
+</body>
+</html>

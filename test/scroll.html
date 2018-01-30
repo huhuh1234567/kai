@@ -1,0 +1,125 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>TEST SCROLL</title>
+	<script type="text/javascript" src="../kload-web.js"></script>
+	<script type="text/javascript" src="../dependency.kload.js"></script>
+</head>
+<body style="margin: 0px;padding: 0px;">
+<script type="text/javascript">
+	load(["kai/k","kai/k-area","kai/k-area-mouse","kai/k-gc","kai/k2d","kai/kw-area"],{
+		"kai": DEPENDENCIES.K
+	},{
+		"kai": ".."
+	},function(){
+
+		var K2D = imports("kai/k2d");
+		var matrix2d = K2D.matrix;
+
+		var K = imports("kai/k");
+		var loop = K.loop;
+		var List = K.List;
+
+		var K_AREA = imports("kai/k-area");
+		var Canvas = K_AREA.Canvas;
+		var Area = K_AREA.Area;
+		var registerAreaMouseDown = K_AREA.registerAreaMouseDown;
+		var registerAreaMouseUp = K_AREA.registerAreaMouseUp;
+		var drawAreaPositionAbsolute = K_AREA.drawAreaPositionAbsolute;
+		var hitAreaSizeRect = K_AREA.hitAreaSizeRect;
+
+		var K_AREA_MOUSE = imports("kai/k-area-mouse");
+		var onAreaClick = K_AREA_MOUSE.onAreaClick;
+
+		var K_GC = imports("kai/k-gc");
+		var fillRect = K_GC.fillRect;
+
+		var KW_AREA = imports("kai/kw-area");
+		var AreaButton = KW_AREA.AreaButton;
+		var AreaScrollBar = KW_AREA.AreaScrollBar;
+
+		var canvas = Canvas();
+		document.body.appendChild(canvas);
+		canvas.width = 640;
+		canvas.height = 480;
+		registerAreaMouseDown(canvas);
+		registerAreaMouseUp(canvas);
+
+		var X = 0;
+		var Y = 0;
+		var WIDTH = 100;
+		var COUNT = 10;
+		var BUTTON_HEIGHT = 60;
+		var AREA_HEIGHT = 200;
+		var SB_HEIGHT = 150;
+
+		//uis
+		var areas = List();
+		//scroll bar
+		var sb = AreaScrollBar({
+			height: SB_HEIGHT,
+			length: AREA_HEIGHT,
+			total: BUTTON_HEIGHT*COUNT
+		});
+		sb.x = X+WIDTH;
+		sb.y = Y;
+		List.push(areas,sb);
+		//outside
+		var outside = Area();
+		outside.width = WIDTH;
+		outside.height = AREA_HEIGHT;
+		outside.x = X;
+		outside.y = Y;
+		List.push(areas,outside);
+		//inside
+		var inside = Area();
+		//uis
+		var uis = List();
+		loop(COUNT,function(i){
+			var button = AreaButton({
+				width: WIDTH,
+				height: BUTTON_HEIGHT,
+				value: (i+1).toString()
+			});
+			button.x = 0;
+			button.y = BUTTON_HEIGHT*i;
+			List.push(uis,button);
+			onAreaClick(button,function(){
+				alert(i+1);
+				sb.offset = button.y;
+			});
+		});
+		inside.setDrawHandler(function(gc){
+			drawAreaPositionAbsolute(gc,uis);
+		});
+		inside.setHitHandler(function(x,y){
+			return hitAreaSizeRect(x,y,uis);
+		});
+		outside.setDrawHandler(function(gc){
+			gc.beginPath();
+			gc.rect(0,0,WIDTH,AREA_HEIGHT);
+			gc.clip();
+			fillRect(gc,WIDTH,AREA_HEIGHT,"#F0F0F0");
+			inside.matrix = matrix2d.translate(0,-sb.offset);
+			inside.draw(gc);
+		});
+		outside.setHitHandler(function(x,y){
+			return inside;
+		});
+		//main
+		canvas.setDrawHandler(function(gc){
+			fillRect(gc,canvas.width,canvas.height,"#808080");
+			drawAreaPositionAbsolute(gc,areas);
+		});
+		canvas.setHitHandler(function(x,y){
+			return hitAreaSizeRect(x,y,areas);
+		});
+
+		//init
+		canvas.$dirty();
+
+	});
+</script>
+</body>
+</html>

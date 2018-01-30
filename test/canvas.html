@@ -1,0 +1,150 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>TEST CANVAS</title>
+	<script type="text/javascript" src="../kload-web.js"></script>
+	<script type="text/javascript" src="../dependency.kload.js"></script>
+</head>
+<body>
+<div id="full"></div>
+<script type="text/javascript">
+	load(["kai/k","kai/k-area","kai/k-area-mouse","kai/k-gc","kai/k2d","kai/k2d-util"],{
+		"kai": DEPENDENCIES.K
+	},{
+		"kai": ".."
+	},function(){
+
+		var K = imports("kai/k");
+		var List = K.List;
+		var loop = K.loop;
+		var loopArray = K.loopArray;
+
+		var K_AREA = imports("kai/k-area");
+		var Canvas = K_AREA.Canvas;
+		var Area = K_AREA.Area;
+		var Layer = K_AREA.Layer;
+		var canvas2area = K_AREA.canvas2area;
+		var registerAreaMouseDown = K_AREA.registerAreaMouseDown;
+		var registerAreaMouseUp = K_AREA.registerAreaMouseUp;
+
+		var K_AREA_MOUSE = imports("kai/k-area-mouse");
+		var onAreaClick = K_AREA_MOUSE.onAreaClick;
+
+		var K_GC = imports("kai/k-gc");
+		var fillRect = K_GC.fillRect;
+
+		var K2D = imports("kai/k2d");
+		var matrix2d = K2D.matrix;
+
+		var K2D_UTIL = imports("kai/k2d-util");
+		var withinRect = K2D_UTIL.withinRect;
+
+		var full = document.getElementById("full");
+		full.style["position"] = "absolute";
+		full.style["left"] = "0px";
+		full.style["top"] = "0px";
+		full.style["right"] = "0px";
+		full.style["bottom"] = "0px";
+
+		var screen = Canvas();
+		full.appendChild(screen);
+		screen.width = 640;
+		screen.height = 480;
+		screen.style["position"] = "absolute";
+		screen.style["left"] = (full.offsetWidth-screen.width)/2+"px";
+		screen.style["top"] = (full.offsetHeight-screen.height)/2+"px";
+
+		registerAreaMouseDown(screen);
+		registerAreaMouseUp(screen);
+
+		var ls = [];
+		loopArray(["#FF0000","#0000FF","#800080","#008080"],function(c,i){
+			var sa = Area();
+			sa.setDrawHandler(function(gc){
+				if(sa.isHover){
+					gc.save();
+					gc.globalAlpha = 0.4;
+					fillRect(gc,50,50,"#FFFFFF");
+					gc.restore();
+				}
+			});
+			sa.onLeave(sa.dirty);
+			sa.onEnter(sa.dirty);
+			onAreaClick(sa,function(x,y){
+				var v = canvas2area(sa,[x,y,1]);
+				console.log("sa"+i+"@("+v[0]+","+v[1]+")");
+			});
+			var l = Layer();
+			l.setDrawHandler(function(gc){
+				fillRect(gc,50,50,c);
+				sa.draw(gc);
+			});
+			l.setHitHandler(function(x,y){
+				if(withinRect(x,y,50,50)){
+					return sa;
+				}
+				else{
+					return null;
+				}
+			});
+			ls[i] = l;
+		});
+
+		var as = [];
+		loop(2,function(b){
+			var a = Area();
+			a.setDrawHandler(function(gc){
+				loop(2,function(i){
+					ls[b*2+i].matrix = matrix2d.rotate(30*(i+1)/180*Math.PI);
+					ls[b*2+i].draw(gc);
+				});
+			});
+			a.setHitHandler(function(x,y){
+				var rst = List();
+				loop(2,function(i){
+					var sa = ls[b*2+i].hit(x,y);
+					sa&&List.push(rst,sa);
+				});
+				return rst;
+			});
+			onAreaClick(a,function(x,y){
+				var v = canvas2area(a,[x,y,1]);
+				console.log("a"+b+"@("+v[0]+","+v[1]+")");
+			});
+			as[b] = a;
+		});
+
+		var layer = Layer();
+		layer.setDrawHandler(function(gc){
+			loop(2,function(b){
+				as[b].matrix = matrix2d.translate(100*(b+1),0);
+				as[b].draw(gc);
+			});
+		});
+		layer.setHitHandler(function(x,y){
+			var rst = List();
+			loop(2,function(b){
+				if(as[b].hit(x,y).head$!==null){
+					List.push(rst,as[b]);
+				}
+			});
+			return rst;
+		});
+
+		screen.setDrawHandler(function(gc){
+			gc.fillStyle = "#000000";
+			gc.fillRect(0,0,screen.width,screen.height);
+			layer.matrix = matrix2d.translate(0,100);
+			layer.draw(gc);
+		});
+		screen.setHitHandler(function(x,y){
+			return layer.hit(x,y);
+		});
+
+		screen.$dirty();
+
+	});
+</script>
+</body>
+</html>
