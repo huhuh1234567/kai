@@ -16,7 +16,11 @@
 	var inverse = K2D.inverse;
 	var project = K2D.project;
 
-	var TOLERANCE = 0.0001;
+	var TOLERANCE = 0.000001;
+
+	function equal(a,b){
+		return a>b-TOLERANCE&&a<b+TOLERANCE;
+	}
 
 	function Bezier0(p1,p2){
 		return function(t){
@@ -35,7 +39,7 @@
 		d = d||Bezier0Differential(p1,p2);
 		return function(x){
 			var t = 0.5;
-			while(Math.abs(x-b(t))>TOLERANCE) {
+			while(!equal(x,b(t))) {
 				t = t+(x-b(t))/d(t);
 			}
 			return t;
@@ -50,16 +54,26 @@
 		return rad*180/Math.PI;
 	}
 
-	function fixDirection(a){
-		return fix0Cycle(a,Math.PI*2);
-	}
-
 	function fixAngle(a){
 		return fix0Symmetric(a,Math.PI);
 	}
 
+	function fixDirection(a){
+		return fix0Cycle(a,Math.PI*2);
+	}
+
+	function fixOriginDirection(ba,ea,overhead){
+		var ta = fixAngle(ea-ba);
+		var da = (overhead? Math.PI*2-ta:ta)/2;
+		var b1oa = fixDirection(ba+da);
+		var b2oa = fixDirection(ba-da);
+		var e1oa = fixDirection(ea+da);
+		var e2oa = fixDirection(ea-da);
+		return fixAngle(b1oa-e2oa)<fixAngle(b2oa-e1oa)? b1oa:b2oa;
+	}
+
 	function buildLine(x1,y1,x2,y2){
-		return x1*y2===x2*y1? [y1,-x1,0]:transform(inverse([x1,x2,y1,y2,0,0]),[-1,-1,1]);
+		return equal(x1*y2,x2*y1)? [y1,-x1,0]:transform(inverse([x1,x2,y1,y2,0,0]),[-1,-1,1]);
 	}
 
 	function withinRange(x,a,b){
@@ -67,7 +81,7 @@
 	}
 
 	function withinRange2(x,y,x1,y1,x2,y2){
-		return x1===x2?withinRange(y,y1,y2):withinRange(x,x1,x2);
+		return equal(x1,x2)? withinRange(y,y1,y2):withinRange(x,x1,x2);
 	}
 
 	function withinAngle(a,oa,da){
@@ -119,20 +133,23 @@
 		return withinAngle(a2+da2,a1,da1)||withinAngle(a2-da2,a1,da1)||withinAngle(a1+da1,a2,da2)||withinAngle(a1-da1,a2,da2);
 	}
 
-	function crossLine(x11,y11,x12,y12,x21,y21,x22,y22){
-		var l1 = buildLine(x11,y11,x12,y12);
-		var l2 = buildLine(x21,y21,x22,y22);
-		return l1[0]*l2[1]===l1[1]*l2[0]? null:transform(inverse([l1[0],l2[0],l1[1],l2[1],0,0]),[-l1[2],-l2[2],1]);
+	function crossLine(l1,l2){
+		return equal(l1[0]*l2[1],l1[1]*l2[0])? null:transform(inverse([l1[0],l2[0],l1[1],l2[1],0,0]),[-l1[2],-l2[2],1]);
 	}
 
-	function crossSegment(x11,y11,x12,y12,x21,y21,x22,y22){
-		var rst = crossLine(x11,y11,x12,y12,x21,y21,x22,y22);
+	function crossPPLine(x11,y11,x12,y12,x21,y21,x22,y22,l1,l2){
+		l1 = l1||buildLine(x11,y11,x12,y12);
+		l2 = l2||buildLine(x21,y21,x22,y22);
+		return crossLine(l1,l2);
+	}
+
+	function crossSegment(x11,y11,x12,y12,x21,y21,x22,y22,l1,l2){
+		var rst = crossPPLine(x11,y11,x12,y12,x21,y21,x22,y22,l1,l2);
 		return rst&&withinRange2(rst[0],rst[1],x11,y11,x12,y12)&&withinRange2(rst[0],rst[1],x21,y21,x22,y22)? rst:null;
 	}
 
-	function crossLineCircle(x1,y1,x2,y2,cx,cy,cr){
+	function crossLineCircle(l,cx,cy,cr){
 		var rst = [];
-		var l = buildLine(x1-cx,y1-cy,x2-cx,y2-cy);
 		var a = l[0];
 		var b = l[1];
 		var c = l[2];
@@ -160,8 +177,13 @@
 		return rst;
 	}
 
-	function crossSegmentArc(x1,y1,x2,y2,cx,cy,cr,ca,cda){
-		var rst = crossLineCircle(x1,y1,x2,y2,cx,cy,cr);
+	function crossPPLineCircle(x1,y1,x2,y2,cx,cy,cr,l){
+		l = l||buildLine(x1-cx,y1-cy,x2-cx,y2-cy);
+		return crossLineCircle(l,cx,cy,cr);
+	}
+
+	function crossSegmentArc(x1,y1,x2,y2,cx,cy,cr,ca,cda,l){
+		var rst = crossPPLineCircle(x1,y1,x2,y2,cx,cy,cr,l);
 		var rst2 = [];
 		loopArray(rst,function(p){
 			if(withinRange2(p[0],p[1],x1,y1,x2,y2)&&withinAngle(Math.atan2(p[1]-cy,p[0]-cx),ca,cda)){
@@ -227,6 +249,10 @@
 		var p2y1 = y2+r2*Math.sin(a2+da2);
 		var p2x2 = x2+r2*Math.cos(a2-da2);
 		var p2y2 = y2+r2*Math.sin(a2-da2);
+		var l11 = buildLine(p1x1,p1y1,x1,y1);
+		var l12 = buildLine(p1x2,p1y2,x1,y1);
+		var l21 = buildLine(p2x1,p2y1,x2,y2);
+		var l22 = buildLine(p2x2,p2y2,x2,y2);
 		return overlapCircle(x1,y1,r1,x2,y2,r2)&&(
 				withinCone(x2-x1,y2-y1,r1,a1,da1)||
 				withinCone(p2x1-x1,p2y1-y1,r1,a1,da1)||
@@ -234,14 +260,14 @@
 				withinCone(x1-x2,y1-y2,r2,a2,da2)||
 				withinCone(p1x1-x2,p1y1-y2,r2,a2,da2)||
 				withinCone(p1x2-x2,p1y2-y2,r2,a2,da2)||
-				crossSegment(p2x1,p2y1,x2,y2,p1x1,p1y1,x1,y1)||
-				crossSegment(p2x1,p2y1,x2,y2,p1x2,p1y2,x1,y1)||
-				crossSegment(p2x2,p2y2,x2,y2,p1x1,p1y1,x1,y1)||
-				crossSegment(p2x2,p2y2,x2,y2,p1x2,p1y2,x1,y1)||
-				crossSegmentArc(p2x1,p2y1,x2,y2,x1,y1,r1,a1,da1).length>0||
-				crossSegmentArc(p2x2,p2y2,x2,y2,x1,y1,r1,a1,da1).length>0||
-				crossSegmentArc(p1x1,p1y1,x1,y1,x2,y2,r2,a2,da2).length>0||
-				crossSegmentArc(p1x2,p1y2,x1,y1,x2,y2,r2,a2,da2).length>0||
+				crossSegment(p2x1,p2y1,x2,y2,p1x1,p1y1,x1,y1,l21,l11)||
+				crossSegment(p2x1,p2y1,x2,y2,p1x2,p1y2,x1,y1,l21,l12)||
+				crossSegment(p2x2,p2y2,x2,y2,p1x1,p1y1,x1,y1,l22,l11)||
+				crossSegment(p2x2,p2y2,x2,y2,p1x2,p1y2,x1,y1,l22,l12)||
+				crossSegmentArc(p2x1,p2y1,x2,y2,x1,y1,r1,a1,da1,l21).length>0||
+				crossSegmentArc(p2x2,p2y2,x2,y2,x1,y1,r1,a1,da1,l22).length>0||
+				crossSegmentArc(p1x1,p1y1,x1,y1,x2,y2,r2,a2,da2,l11).length>0||
+				crossSegmentArc(p1x2,p1y2,x1,y1,x2,y2,r2,a2,da2,l12).length>0||
 				crossArc(x2,y2,r2,a2,da2,x1,y1,r1,a1,da1).length>0
 			);
 	}
@@ -277,7 +303,7 @@
 	function overlapConvexCircle(c,x,y,r){
 		return insure(loopArray(edge(c),function(a){
 			var l = [a[1],-a[0],0];
-			var xi = l[1]!==0? 0:1;
+			var xi = equal(l[1],0)!==0? 0:1;
 			var cpx = [];
 			loopArray(c,function(p){
 				cpx.push(project(p,l)[xi]);
@@ -289,6 +315,10 @@
 		}),true);
 	}
 
+	exports.TOLERANCE = TOLERANCE;
+
+	exports.equal = equal;
+
 	exports.Bezier0 = Bezier0;
 	exports.Bezier0Differential = Bezier0Differential;
 	exports.Bezier0Inverse = Bezier0Inverse;
@@ -296,8 +326,9 @@
 	exports.deg2rad = deg2rad;
 	exports.rad2deg = rad2deg;
 
-	exports.fixDirection = fixDirection;
 	exports.fixAngle = fixAngle;
+	exports.fixDirection = fixDirection;
+	exports.fixOriginDirection = fixOriginDirection;
 
 	exports.buildLine = buildLine;
 
@@ -318,6 +349,8 @@
 
 	exports.crossLine = crossLine;
 	exports.crossLineCircle = crossLineCircle;
+	exports.crossPPLine = crossPPLine;
+	exports.crossPPLineCircle = crossPPLineCircle;
 	exports.crossSegment = crossSegment;
 	exports.crossSegmentArc = crossSegmentArc;
 	exports.crossCircle = crossCircle;

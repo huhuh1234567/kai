@@ -19,15 +19,17 @@
 
 		var K = imports("kai/k");
 		var loop = K.loop;
+		var loopArray = K.loopArray;
 		var List = K.List;
 
 		var K_AREA = imports("kai/k-area");
 		var Canvas = K_AREA.Canvas;
 		var Area = K_AREA.Area;
+		var Layer = K_AREA.Layer;
 		var registerAreaMouseDown = K_AREA.registerAreaMouseDown;
 		var registerAreaMouseUp = K_AREA.registerAreaMouseUp;
-		var drawAreaPositionAbsolute = K_AREA.drawAreaPositionAbsolute;
-		var hitAreaSizeRect = K_AREA.hitAreaSizeRect;
+		var drawAreaAbsolute = K_AREA.drawAreaAbsolute;
+		var hitAreaRect = K_AREA.hitAreaRect;
 
 		var K_AREA_MOUSE = imports("kai/k-area-mouse");
 		var onAreaClick = K_AREA_MOUSE.onAreaClick;
@@ -39,84 +41,112 @@
 		var AreaButton = KW_AREA.AreaButton;
 		var AreaScrollBar = KW_AREA.AreaScrollBar;
 
-		var canvas = Canvas();
-		document.body.appendChild(canvas);
-		canvas.width = 640;
-		canvas.height = 480;
-		registerAreaMouseDown(canvas);
-		registerAreaMouseUp(canvas);
-
-		var X = 0;
-		var Y = 0;
-		var WIDTH = 100;
+		var X = 15;
+		var Y = 15;
+		var BUTTON_WIDTH = 100;
 		var COUNT = 10;
 		var BUTTON_HEIGHT = 60;
-		var AREA_HEIGHT = 200;
+		var WIN_HEIGHT = 200;
 		var SB_HEIGHT = 150;
 
-		//uis
-		var areas = List();
-		//scroll bar
-		var sb = AreaScrollBar({
-			height: SB_HEIGHT,
-			length: AREA_HEIGHT,
-			total: BUTTON_HEIGHT*COUNT
-		});
-		sb.x = X+WIDTH;
-		sb.y = Y;
-		List.push(areas,sb);
-		//outside
-		var outside = Area();
-		outside.width = WIDTH;
-		outside.height = AREA_HEIGHT;
-		outside.x = X;
-		outside.y = Y;
-		List.push(areas,outside);
-		//inside
-		var inside = Area();
-		//uis
-		var uis = List();
+		//canvas-win-outside-inside-buttons
+		var buttons = [];
 		loop(COUNT,function(i){
 			var button = AreaButton({
-				width: WIDTH,
+				width: BUTTON_WIDTH,
 				height: BUTTON_HEIGHT,
 				value: (i+1).toString()
 			});
 			button.x = 0;
 			button.y = BUTTON_HEIGHT*i;
-			List.push(uis,button);
-			onAreaClick(button,function(){
-				alert(i+1);
-				sb.offset = button.y;
-			});
+			buttons.push(button);
+		});
+		//canvas-win-outside-inside
+		var inside = Area(Layer);
+		var insideAreas = List();
+		loopArray(buttons,function(button){
+			List.push(insideAreas,button);
 		});
 		inside.setDrawHandler(function(gc){
-			drawAreaPositionAbsolute(gc,uis);
+			drawAreaAbsolute(gc,insideAreas);
 		});
 		inside.setHitHandler(function(x,y){
-			return hitAreaSizeRect(x,y,uis);
+			return hitAreaRect(x,y,insideAreas);
 		});
+		//canvas-win-outside
+		var outside = Area(Layer);
+		outside.width = BUTTON_WIDTH;
+		outside.height = WIN_HEIGHT;
+		outside.x = 0;
+		outside.y = 0;
 		outside.setDrawHandler(function(gc){
+			//clip
 			gc.beginPath();
-			gc.rect(0,0,WIDTH,AREA_HEIGHT);
+			gc.rect(0,0,BUTTON_WIDTH,WIN_HEIGHT);
 			gc.clip();
-			fillRect(gc,WIDTH,AREA_HEIGHT,"#F0F0F0");
-			inside.matrix = matrix2d.translate(0,-sb.offset);
+			//bg
+			fillRect(gc,BUTTON_WIDTH,WIN_HEIGHT,"#F0F0F0");
+			//inside
+			inside.setLocalMatrix(matrix2d.translate(0,-sb.offset));
 			inside.draw(gc);
 		});
 		outside.setHitHandler(function(x,y){
 			return inside;
 		});
-		//main
-		canvas.setDrawHandler(function(gc){
-			fillRect(gc,canvas.width,canvas.height,"#808080");
-			drawAreaPositionAbsolute(gc,areas);
+		//canvas-win-sb
+		var sb = AreaScrollBar({
+			height: SB_HEIGHT,
+			length: WIN_HEIGHT,
+			total: BUTTON_HEIGHT*COUNT
 		});
-		canvas.setHitHandler(function(x,y){
-			return hitAreaSizeRect(x,y,areas);
+		sb.x = BUTTON_WIDTH;
+		sb.y = 0;
+		//canvas-win
+		var win = Area(Layer);
+		win.width = outside.width+sb.width;
+		win.height = outside.height;
+		win.x = X;
+		win.y = Y;
+		//canvas-win-subs
+		var winAreas = List();
+		List.push(winAreas,outside);
+		List.push(winAreas,sb);
+		win.setDrawHandler(function(gc){
+			fillRect(gc,win.width,win.height,"#808080");
+			drawAreaAbsolute(gc,winAreas);
+		});
+		win.setHitHandler(function(x,y){
+			return hitAreaRect(x,y,winAreas);
+		});
+		//canvas
+		var canvas = Canvas();
+		canvas.width = 640;
+		canvas.height = 480;
+		var root = Area(Layer);
+		canvas.setRoot(root);
+		root.setLocalMatrix(matrix2d.unit());
+		var areas = List();
+		List.push(areas,win);
+		root.setDrawHandler(function(gc){
+			fillRect(gc,canvas.width,canvas.height,"#000000");
+			drawAreaAbsolute(gc,areas);
+		});
+		root.setHitHandler(function(x,y){
+			return hitAreaRect(x,y,areas);
+		});
+
+		//events
+		registerAreaMouseDown(canvas);
+		registerAreaMouseUp(canvas);
+		loopArray(buttons,function(button,i){
+			onAreaClick(button,function(){
+				alert("id="+i);
+				sb.offset = button.y;
+			});
 		});
 
 		//init
+		document.body.appendChild(canvas);
 		canvas.$dirty();
 
 	});

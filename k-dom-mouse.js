@@ -35,6 +35,7 @@
 		if(clearHandler){
 			onMouseOut(el,clearHandler);
 		}
+		return el;
 	}
 
 	function registerDown(el,setHandler,clearHandler){
@@ -55,64 +56,77 @@
 				once(onMouseUp,document,clearHandler);
 			});
 		}
+		return el;
 	}
 
 	function onSlide(el,task){
-		return onMouseDown(el,function(e){
-			task(e.pageX,e.pageY);
-			var handle = onMouseMove(document.body,function(e){
-				task(e.pageX,e.pageY);
+		return onMouseDown(el,function(e0){
+			var move$ = onMouseMove(document.body,function(e){
+				task(e,e.pageX,e.pageY);
 			});
-			once(onMouseUp,document.body,function(e){
-				handle.remove();
-				task(e.pageX,e.pageY);
+			var up$ = once(onMouseUp,document.body,function(e){
+				if(e.button===e0.button){
+					up$.remove();
+					move$.remove();
+					task(e,e.pageX,e.pageY);
+				}
 			});
+			task(e0,e0.pageX,e0.pageY);
 		});
 	}
 
 	function onDrag(el,task){
-		return onMouseDown(el,function(e){
-			var x0 = e.pageX;
-			var y0 = e.pageY;
+		return onMouseDown(el,function(e0){
+			var x0 = e0.pageX;
+			var y0 = e0.pageY;
 			var x1 = x0;
 			var y1 = y0;
-			var handle = onMouseMove(document.body,function(e){
-				task(e.pageX,e.pageY,x1,y1,x0,y0);
-				x1 = e.pageX;
-				y1 = e.pageY;
+			var move$ = onMouseMove(document.body,function(e){
+				var x = e.pageX;
+				var y = e.pageY;
+				task(e,x,y,x1,y1,x0,y0);
+				x1 = x;
+				y1 = y;
 			});
-			once(onMouseUp,document.body,function(){
-				handle.remove();
+			var up$ = onMouseUp(document.body,function(e){
+				if(e.button===e0.button){
+					up$.remove();
+					move$.remove();
+					task(e,e.pageX,e.pageY,x1,y1,x0,y0);
+				}
 			});
+			task(e0,x0,y0,x1,y1,x0,y0);
 		});
 	}
 
 	function onHold(el,task){
-		return onMouseDown(el,function(e){
-			var x0 = e.pageX;
-			var y0 = e.pageY;
-			var x1 = x0;
-			var y1 = y0;
-			task(x1,y1,x0,y0);
-			var handle = onMouseMove(document.body,function(e){
-				x1 = e.pageX;
-				y1 = e.pageY;
+		return onMouseDown(el,function(e0){
+			var timer = 0;
+			var x0 = e0.pageX;
+			var y0 = e0.pageY;
+			function hold(){
+				timer = setTimeout(hold,CONFIG.HOLD_TIME);
+				task(null,e.pageX,e.pageY,x0,y0);
+			}
+			function setup(e){
+				timer = setTimeout(hold,CONFIG.HOLD_DELAY);
+				task(e,e.pageX,e.pageY,x0,y0);
+			}
+			function clear(){
+				clearTimeout(timer);
+				timer = 0;
+			}
+			var setup$ = onMouseOver(el,setup);
+			var clear$ = onMouseOut(el,clear);
+			var up$ = onMouseUp(document.body,function(e){
+				if(e.button===e0.button){
+					up$.remove();
+					setup$.remove();
+					clear$.remove();
+					timer&&clear();
+				}
 			});
-			var timer = setTimeout(function hold(){
-				if(timer){
-					timer = setTimeout(hold,CONFIG.HOLD_TIME);
-				}
-				if(el.$isHover){
-					task(x1,y1,x0,y0);
-				}
-			},CONFIG.HOLD_DELAY);
-			once(onMouseUp,document.body,function(){
-				handle.remove();
-				if(timer){
-					clearTimeout(timer);
-					timer = 0;
-				}
-			});
+			setup(e0);
 		});
 	}
 
@@ -131,7 +145,7 @@
 	exports.onDoubleClick = onDoubleClick;
 
 	exports.onSlide = onSlide;
-	exports.onHold = onHold;
 	exports.onDrag = onDrag;
+	exports.onHold = onHold;
 
 })();

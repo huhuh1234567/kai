@@ -4,6 +4,7 @@
 	var Event = K.Event;
 	var insure = K.insure;
 	var extend = K.extend;
+	var wrap = K.wrap;
 
 	var K_DOM = imports("k-dom");
 	var registerDirty = K_DOM.registerDirty;
@@ -205,18 +206,15 @@
 			}
 		});
 		var changeEvent = Event();
-		onSlide(el,function(x){
+		onSlide(el,function(e,x){
 			value = Math.max(0,Math.min(1,(x-getPageLeft(el))/el.$width));
 			changeEvent.trigger(value);
 			change();
 		});
-		var $remove = el.$remove;
-		return extend(el,{
-			onChange: changeEvent.register,
-			$remove: function(){
-				rate.$remove();
-				$remove();
-			}
+		return extend(wrap(el,{
+			$remove: rate.$remove
+		}),{
+			onChange: changeEvent.register
 		});
 	}
 

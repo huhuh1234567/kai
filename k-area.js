@@ -20,69 +20,94 @@
 	var K2D_UTIL = imports("k2d-util");
 	var withinRect = K2D_UTIL.withinRect;
 
-	function Layer(){
-		var drawHandler = null;
-		var hitHandler = null;
-		var sm = matrix2d.unit();
-		var bm = matrix2d.unit();
+	function global2local(area,v){
+		return transform2d(inverse2d(area.getGlobalMatrix()),v);
+	}
+
+	function local2global(area,v){
+		return transform2d(area.getGlobalMatrix(),v);
+	}
+
+	function View(){
 		var canvas = null;
-		var layer = {};
-		Object.defineProperties(layer,{
-			matrix: {
-				get: function(){
-					return sm;
-				},
-				set: function(m){
-					sm = m;
-				}
+		var bm = null;
+		var gm = null;
+		var draw = null;
+		var sm = matrix2d.unit();
+		return {
+			_k_constructor: View,
+			setLocalMatrix: function(m){
+				sm = m;
 			},
-			base: {
-				get: function(){
-					return bm;
-				}
+			getGlobalMatrix: function(){
+				return gm;
 			},
-			canvas: {
-				get: function(){
-					return canvas;
-				}
-			}
-		});
-		return extend(layer,{
-			type: "Layer",
-			dirty: function(){
-				canvas&&canvas.$dirty();
+			getCanvas: function(){
+				return canvas;
+			},
+			setDrawHandler: function(op){
+				draw = op;
 			},
 			draw: function(gc){
+				//refresh
 				canvas = gc.canvas;
 				bm = gc.matrix;
-				gc.matrix = combine2d(bm,sm);
+				gm = combine2d(bm,sm);
+				//draw
+				gc.matrix = gm;
 				gc.save();
 				gc.transform(sm[0],sm[1],sm[2],sm[3],sm[4],sm[5]);
-				drawHandler&&drawHandler(gc);
+				draw&&draw(gc);
 				gc.restore();
 				gc.matrix = bm;
+			}
+		};
+	}
+
+	function Layer(){
+		var hit = null;
+		var layer = View();
+		return extend(layer,{
+			_k_constructor: Layer,
+			_k_base_constructor: View,
+			setHitHandler: function(op){
+				hit = op;
 			},
 			hit: function(x,y){
-				var v = transform2d(inverse2d(sm),[x,y,1]);
-				return hitHandler&&hitHandler(v[0],v[1])||null;
-			},
-			setDrawHandler: function(h){
-				drawHandler = h;
-			},
-			setHitHandler: function(h){
-				hitHandler = h;
+				var v = global2local(layer,[x,y,1]);
+				return hit&&hit(v[0],v[1])||null;
 			}
 		});
 	}
 
-	function Area(){
-		var area = Layer();
+	function Layout(){
+		var hit = null;
+		var layout = View();
+		return extend(layout,{
+			_k_constructor: Layout,
+			_k_base_constructor: View,
+			setHitHandler: function(op){
+				hit = op;
+			},
+			hit: function(x,y){
+				return hit&&hit(x,y)||null;
+			}
+		});
+	}
+
+	function Area(Base){
+		var area = Base();
 		var enterEvent = Event();
 		var leaveEvent = Event();
 		var moveEvent = Event();
 		var event = {};
 		return extend(area,{
-			type: "Area",
+			_k_constructor: Area,
+			_k_base_constructor: area._k_constructor,
+			dirty: function(){
+				var canvas = area.getCanvas();
+				canvas&&canvas.$dirty();
+			},
 			isHover: false,
 			isLastHover: false,
 			enter: enterEvent.trigger,
@@ -96,7 +121,7 @@
 				return event[en].register(h);
 			},
 			trigger: function(en,e,x,y){
-				area.canvas&&event[en]&&event[en].trigger(e,x,y);
+				event[en]&&event[en].trigger(e,x,y);
 			}
 		});
 	}
@@ -108,32 +133,22 @@
 		//gc
 		var gc = canvas.getContext("2d");
 		gc.canvas = canvas;
-		//area
-		var root = Area();
+		gc.matrix = matrix2d.unit();
+		//root
+		var root = null;
 		function hit(x,y){
 			var rst = List();
+			root._k_constructor===Area&&List.push(rst,root);
 			var queue = List();
 			List.push(queue,root);
 			var current$;
 			while((current$=queue.head$)!==null){
-				var v = transform2d(inverse2d(current$.$.base),[x,y,1]);
-				var subs = current$.$.hit(v[0],v[1]);
-				if(subs){
-					if(subs.type==="List"){
-						List.concat(queue,subs);
-					}
-					else{
-						List.push(queue,subs);
-					}
-				}
-				List.push(rst,List.shift(queue));
+				var subs = current$.$.getCanvas()&&current$.$.hit&&current$.$.hit(x,y)||null;
+				List.concat2(rst,subs);
+				List.concat2(queue,subs);
+				List.shift(queue);
 			}
 			return rst;
-		}
-		function draw(gc){
-			gc.clearRect(0,0,canvas.width,canvas.height);
-			gc.matrix = matrix2d.unit();
-			root.draw(gc);
 		}
 		//last
 		var lastX = 0;
@@ -177,35 +192,27 @@
 		bind(document.body,"mousemove",function(e){
 			lastX = e.pageX-getPageLeft(canvas);
 			lastY = e.pageY-getPageTop(canvas);
-			update(hit(lastX,lastY),e);
+			if(root){
+				update(hit(lastX,lastY),e);
+			}
 		});
 		//draw
 		canvas.$onRefresh(function(){
-			draw(gc);
-			update(hit(lastX,lastY),null);
-		});
-		//return
-		Object.defineProperties(canvas,{
-			matrix: {
-				get: function(){
-					return root.matrix;
-				},
-				set: function(m){
-					root.matrix = m;
-				}
-			},
-			base: {
-				get: function(){
-					return root.base;
-				}
-			},
-			canvas: {
-				get: function(){
-					return root.canvas;
-				}
+			gc.clearRect(0,0,canvas.width,canvas.height);
+			if(root){
+				root.draw(gc);
+				update(hit(lastX,lastY),null);
 			}
 		});
-		return extend(extend(canvas,root),{
+		//return
+		return extend(canvas,{
+			_k_constructor: Canvas,
+			setRoot: function(r){
+				root = r;
+			},
+			getRoot: function(){
+				return root;
+			},
 			getHovers: function(){
 				return hovers;
 			},
@@ -216,14 +223,6 @@
 				return lastY;
 			}
 		});
-	}
-
-	function canvas2area(area,v){
-		return transform2d(inverse2d(combine2d(area.base,area.matrix)),v);
-	}
-
-	function area2canvas(area,v){
-		return transform2d(combine2d(area.base,area.matrix),v);
 	}
 
 	function OnAreaEvent(en){
@@ -243,6 +242,7 @@
 					area.trigger(en,e,x,y);
 				});
 			});
+			return canvas;
 		};
 	}
 	var registerAreaMouseDown = RegisterAreaEvent("mousedown");
@@ -260,27 +260,33 @@
 	var flowX = Flow("x","width");
 	var flowY = Flow("y","height");
 
-	function hitAreaSizeRect(x,y,areas){
-		return List.loop(areas.tail$,null,function(area){
-			if(withinRect(x-area.x,y-area.y,area.width,area.height)){
-				return area;
-			}
+	function hitAreaLayers(x,y,layers){
+		return List.loop(layers.tail$,null,function(layer){
+			return layer.hit(x,y)||undefined;
 		},true)||null;
 	}
 
-	function drawAreaPositionAbsolute(gc,areas){
-		List.loop(areas.head$,null,function(area){
-			area.matrix = matrix2d.translate(area.x,area.y);
-			area.draw(gc);
+	function hitAreaRect(x,y,areas){
+		return List.loop(areas.tail$,null,function(area){
+			return withinRect(x-area.x,y-area.y,area.width,area.height)? area:undefined;
+		},true)||null;
+	}
+
+	function drawAreaAbsolute(gc,views){
+		List.loop(views.head$,null,function(view){
+			view.setLocalMatrix(matrix2d.translate(view.x,view.y));
+			view.draw(gc);
 		});
 	}
 
+	exports.View = View;
 	exports.Layer = Layer;
+	exports.Layout = Layout;
 	exports.Area = Area;
 	exports.Canvas = Canvas;
 
-	exports.canvas2area = canvas2area;
-	exports.area2canvas = area2canvas;
+	exports.global2local = global2local;
+	exports.local2global = local2global;
 
 	exports.OnAreaEvent = OnAreaEvent;
 	exports.onAreaMouseDown = onAreaMouseDown;
@@ -292,7 +298,8 @@
 
 	exports.flowX = flowX;
 	exports.flowY = flowY;
-	exports.hitAreaSizeRect = hitAreaSizeRect;
-	exports.drawAreaPositionAbsolute = drawAreaPositionAbsolute;
+	exports.hitAreaRect = hitAreaRect;
+	exports.hitAreaLayers = hitAreaLayers;
+	exports.drawAreaAbsolute = drawAreaAbsolute;
 
 })();

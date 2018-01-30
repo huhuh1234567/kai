@@ -3,6 +3,7 @@
 	var K = imports("k");
 	var Event = K.Event;
 	var extend = K.extend;
+	var wrap = K.wrap;
 
 	function bind(el,ev,h){
 		el.addEventListener(ev,h);
@@ -41,18 +42,18 @@
 				dirty = false;
 				refreshEvent.trigger();
 			}
-			af = requestAnimationFrame(draw);
+			af = requestAnimationFrame(draw,null);
 		})(0);
-		var $remove = el.$remove||null;
-		return extend(el,{
+		return extend(wrap(el,{
+			$remove: function(){
+				af&&cancelAnimationFrame(af);
+			}
+		}),{
 			$dirty: function(){
 				dirty = true;
 			},
-			$onRefresh: refreshEvent.register,
-			$remove: function(){
-				af&&cancelAnimationFrame(af);
-				$remove&&$remove();
-			}
+			$refresh: refreshEvent.trigger,
+			$onRefresh: refreshEvent.register
 		});
 	}
 

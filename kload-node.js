@@ -1,16 +1,20 @@
-var KLOAD = require("./kload.js");
-var retrieveName = KLOAD.retrieveName;
+(function(){
 
-var map = {};
+	var KLOAD = require("./kload.js");
+	var retrieveName = KLOAD.retrieveName;
 
-function register(name,path){
-	map[name] = path;
-}
+	var map = {};
 
-function imports(path){
-	var name = retrieveName(path);
-	return require((map[name.lib]||".")+"/"+name.module+".js");
-}
+	function register(name,path){
+		map[name] = path;
+	}
 
-global.register = register;
-global.imports = imports;
+	function imports(path){
+		var name = retrieveName(path);
+		return require((map[name.lib]||".")+"/"+name.module+".js");
+	}
+
+	global.register = register;
+	global.imports = imports;
+
+})();

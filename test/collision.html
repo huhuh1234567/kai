@@ -32,6 +32,9 @@
 		var onMouseMove = K_DOM_MOUSE.onMouseMove;
 
 		var K2D_UTIL = imports("kai/k2d-util");
+		var fixAngle = K2D_UTIL.fixAngle;
+		var fixDirection = K2D_UTIL.fixDirection;
+		var fixOriginDirection = K2D_UTIL.fixOriginDirection;
 		var overlapCircle = K2D_UTIL.overlapCircle;
 		var overlapCone = K2D_UTIL.overlapCone;
 		var overlapConvex = K2D_UTIL.overlapConvex;
@@ -80,27 +83,28 @@
 						shape.r = 0;
 						shape.ba = 0;
 						shape.ea = 0;
+						shape.oa = 0;
+						shape.da = 0;
 					},
 					function(shape,x,y){
 						var dx = x-shape.x;
 						var dy = y-shape.y;
 						shape.r = Math.sqrt(dx*dx+dy*dy);
-						shape.ba = Math.atan2(dy,dx);
+						shape.ba = fixDirection(Math.atan2(dy,dx));
 						shape.ea = shape.ba;
 					},
 					function(shape,x,y){
 						var dx = x-shape.x;
 						var dy = y-shape.y;
-						shape.ea = Math.atan2(dy,dx);
-						while(shape.ea<shape.ba){
-							shape.ea += Math.PI*2;
-						}
+						shape.ea = fixDirection(Math.atan2(dy,dx));
 					}
 				],
 				draw: function(gc,shape){
+					shape.oa = fixOriginDirection(shape.ba,shape.ea);
+					shape.da = fixAngle(shape.ea-shape.ba)/2;
 					gc.save();
 					gc.translate(shape.x,shape.y);
-					strokeCone(gc,shape.r,shape.ba,shape.ea,"#000000",1);
+					strokeCone(gc,shape.r,shape.oa-shape.da,shape.oa+shape.da,"#000000",1);
 					gc.restore();
 				}
 			},
@@ -152,7 +156,7 @@
 					return overlapCircle(s1.x,s1.y,s1.r,s2.x,s2.y,s2.r);
 				},
 				"cone": function(s1,s2){
-					return overlapCircleCone(s1.x,s1.y,s1.r,s2.x,s2.y,s2.r,(s2.ea+s2.ba)/2,(s2.ea-s2.ba)/2);
+					return overlapCircleCone(s1.x,s1.y,s1.r,s2.x,s2.y,s2.r,s2.oa,s2.da);
 				},
 				"polygon": function(s1,s2){
 					return false;
@@ -160,10 +164,10 @@
 			},
 			"cone": {
 				"circle": function(s1,s2){
-					return overlapCircleCone(s2.x,s2.y,s2.r,s1.x,s1.y,s1.r,(s1.ea+s1.ba)/2,(s1.ea-s1.ba)/2);
+					return overlapCircleCone(s2.x,s2.y,s2.r,s1.x,s1.y,s1.r,s1.oa,s1.da);
 				},
 				"cone": function(s1,s2){
-					return overlapCone(s1.x,s1.y,s1.r,(s1.ea+s1.ba)/2,(s1.ea-s1.ba)/2,s2.x,s2.y,s2.r,(s2.ea+s2.ba)/2,(s2.ea-s2.ba)/2);
+					return overlapCone(s1.x,s1.y,s1.r,s1.oa,s1.da,s2.x,s2.y,s2.r,s2.oa,s2.da);
 				},
 				"polygon": function(s1,s2){
 					return false;

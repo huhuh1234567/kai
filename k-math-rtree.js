@@ -7,8 +7,8 @@
 	var memcpy = K.memcpy;
 	var memset = K.memset;
 
-	function Node(){
-		return extend(List.Node(),{
+	function Node(val){
+		return extend(List.$(val),{
 			lks: [],
 			rks: [],
 			product: -1,
@@ -55,22 +55,21 @@
 		//==========================================================================
 
 		function Value$(lks,rks,val){
-			var n$ = Node();
-			memcpy(n$.lks,0,lks,0,dimension);
-			memcpy(n$.rks,0,rks,0,dimension);
-			n$.product = product$(n$);
-			n$.$ = val;
-			return n$;
+			var node = Node(val);
+			memcpy(node.lks,0,lks,0,dimension);
+			memcpy(node.rks,0,rks,0,dimension);
+			node.product = product$(node);
+			return node;
 		}
 
 		function Index$(){
-			var n$ = Node();
-			memset(n$.lks,0,0,dimension);
-			memset(n$.rks,0,0,dimension);
-			n$.product = 0;
-			n$.count = 0;
-			n$.children = List();
-			return n$;
+			var node = Node(null);
+			memset(node.lks,0,0,dimension);
+			memset(node.rks,0,0,dimension);
+			node.product = 0;
+			node.count = 0;
+			node.children = List();
+			return node;
 		}
 
 		function add$(p$,t$){
@@ -300,5 +299,7 @@
 		return RTree;
 
 	}
+
+	exports.RTreeFactory = RTreeFactory;
 
 })();

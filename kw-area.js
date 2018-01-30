@@ -16,11 +16,15 @@
 
 	var K_AREA = imports("k-area");
 	var Area = K_AREA.Area;
+	var View = K_AREA.View;
+	var Layer = K_AREA.Layer;
 	var onAreaMouseDown = K_AREA.onAreaMouseDown;
-	var onAreaMouseUp = K_AREA.onAreaMouseUp;
-	var canvas2area = K_AREA.canvas2area;
-	var drawAreaPositionAbsolute = K_AREA.drawAreaPositionAbsolute;
-	var hitAreaSizeRect = K_AREA.hitAreaSizeRect;
+	var global2local = K_AREA.global2local;
+	var drawAreaAbsolute = K_AREA.drawAreaAbsolute;
+	var hitAreaRect = K_AREA.hitAreaRect;
+
+	var K_DOM_MOUSE = imports("k-dom-mouse");
+	var onMouseUp = K_DOM_MOUSE.onMouseUp;
 
 	var K_AREA_MOUSE = imports("k-area-mouse");
 	var onAreaSlide = K_AREA_MOUSE.onAreaSlide;
@@ -35,7 +39,7 @@
 	var AREA_SCROLL_BAR = CONFIG.AREA_SCROLL_BAR;
 
 	function AreaRawButton(args){
-		var area = extend(extend(Area(),extract(args,{
+		var area = extend(extend(Area(View),extract(args,{
 			width: 0,
 			height: 0,
 			hidden: false,
@@ -71,7 +75,7 @@
 			if(!area.hidden&&!area.disabled){
 				area.isDown = true;
 				area.dirty();
-				once(onAreaMouseUp,area.canvas,function(){
+				once(onMouseUp,document.body,function(){
 					area.isDown = false;
 					area.dirty();
 				});
@@ -179,8 +183,8 @@
 				}
 			}
 		});
-		onAreaSlide(area,function(x,y){
-			var v = canvas2area(area,[x,y,1]);
+		onAreaSlide(area,function(e,x,y){
+			var v = global2local(area,[x,y,1]);
 			value = Math.max(0,Math.min(1,v[0]/area.width));
 			changeEvent.trigger(value);
 			area.dirty();
@@ -192,45 +196,35 @@
 
 	function AreaScrollBar(args){
 
-		var area = Area();
-
-		var states = extract(args,{
+		var area = Area(Layer);
+		//properties
+		var $dirty = true;
+		var $ = extract(args,{
 			height: 0,
 			total: 0,
 			length: 0,
 			offset: 0
 		});
-		loopObject({
-			height: function(v){
-				return Math.max(AREA_SCROLL_BAR.BUTTON_HEIGHT*2+1,v);
-			},
-			total: function(v){
-				return Math.max(1,v);
-			},
-			length: function(v){
-				return Math.max(0,v);
-			},
-			offset: function(v){
-				return Math.max(0,Math.min(states.total-states.length,v));
-			}
-		},function(k,clamp){
-			states[k] = clamp(states[k]);
+		loopObject($,function(k){
 			Object.defineProperty(area,k,{
 				get: function(){
-					return states[k];
+					if($dirty){
+						$dirty = false;
+						$.total = Math.max(1,$.total);
+						$.length = Math.max(0,$.length);
+						$.height = Math.max(AREA_SCROLL_BAR.BUTTON_HEIGHT*2+1,$.height);
+						$.offset = Math.max(0,Math.min($.total-$.length,$.offset));
+					}
+					return $[k];
 				},
 				set: function(value){
-					states[k] = clamp(value);
+					$[k] = value;
+					$dirty = true;
 					area.dirty();
 				}
 			});
 		});
-		Object.defineProperty(area,"width",{
-			get: function(){
-				return AREA_SCROLL_BAR.WIDTH;
-			}
-		});
-
+		area.width = AREA_SCROLL_BAR.WIDTH;
 		//uis
 		var areas = List();
 		//上箭头
@@ -272,18 +266,18 @@
 		var rate = 1;
 		area.setDrawHandler(function(gc){
 			//bg
-			fillRect(gc,AREA_SCROLL_BAR.WIDTH,states.height,AREA_SCROLL_BAR.BACKGROUND_COLOR);
+			fillRect(gc,AREA_SCROLL_BAR.WIDTH,area.height,AREA_SCROLL_BAR.BACKGROUND_COLOR);
 			//uis
-			downButton.y = states.height-AREA_SCROLL_BAR.BUTTON_HEIGHT;
-			height = states.height-AREA_SCROLL_BAR.BUTTON_HEIGHT*2;
-			rate = height/states.total;
-			span.height = Math.min(height,states.length*rate);
-			span.y = AREA_SCROLL_BAR.BUTTON_HEIGHT+states.offset*rate;
+			downButton.y = area.height-AREA_SCROLL_BAR.BUTTON_HEIGHT;
+			height = area.height-AREA_SCROLL_BAR.BUTTON_HEIGHT*2;
+			rate = height/area.total;
+			span.height = Math.min(height,area.length*rate);
+			span.y = AREA_SCROLL_BAR.BUTTON_HEIGHT+area.offset*rate;
 			//draw
-			drawAreaPositionAbsolute(gc,areas);
+			drawAreaAbsolute(gc,areas);
 		});
 		area.setHitHandler(function(x,y){
-			return hitAreaSizeRect(x,y,areas);
+			return hitAreaRect(x,y,areas);
 		});
 		//event
 		function scroll(d){
@@ -292,23 +286,22 @@
 		}
 		var scrollEvent = Event();
 		onAreaHold(upButton,function(){
-			var d = -AREA_SCROLL_BAR.STEP_RATE*states.length;
+			var d = -AREA_SCROLL_BAR.STEP_RATE*area.length;
 			scroll(d);
 			scrollEvent.trigger(d);
 		});
 		onAreaHold(downButton,function(){
-			var d = AREA_SCROLL_BAR.STEP_RATE*states.length;
+			var d = AREA_SCROLL_BAR.STEP_RATE*area.length;
 			scroll(d);
 			scrollEvent.trigger(d);
 		});
-		onAreaDrag(span,function(x,y,x1,y1){
-			var v = canvas2area(area,[x,y,1]);
-			var v0 = canvas2area(area,[x1,y1,1]);
+		onAreaDrag(span,function(e,x,y,x1,y1){
+			var v = global2local(area,[x,y,1]);
+			var v0 = global2local(area,[x1,y1,1]);
 			var d = (v[1]-v0[1])/rate;
 			scroll(d);
 			scrollEvent.trigger(d);
 		});
-
 		return extend(area,{
 			scroll: scroll,
 			onScroll: scrollEvent.register

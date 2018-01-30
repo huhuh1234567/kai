@@ -14,6 +14,7 @@
 		});
 		el.$width = el.offsetWidth;
 		el.$height = el.offsetHeight;
+		return el;
 	}
 
 	function setSizeRect(el,width,height){
@@ -23,6 +24,7 @@
 		});
 		el.$width = width;
 		el.$height = height;
+		return el;
 	}
 
 	function setPositionAbsolute(el,x,y){
@@ -33,6 +35,7 @@
 		});
 		el.$x = x;
 		el.$y = y;
+		return el;
 	}
 
 	function setSelectNone(el){
@@ -40,6 +43,7 @@
 			"user-select": "none",
 			"cursor": "default"
 		});
+		return el;
 	}
 
 	function setBorderNone(el){
@@ -48,6 +52,7 @@
 			"padding": "0px",
 			"border-style": "none"
 		});
+		return el;
 	}
 
 	function registerSizeRect(el){
@@ -87,6 +92,7 @@
 				height: height+"px"
 			});
 		});
+		return el;
 	}
 
 	function registerPositionAbsolute(el){
@@ -127,6 +133,7 @@
 				top: y+"px"
 			});
 		});
+		return el;
 	}
 
 	exports.setSizeFull = setSizeFull;

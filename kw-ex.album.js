@@ -5,6 +5,7 @@
 	var K = imports("k");
 	var extend = K.extend;
 	var Event = K.Event;
+	var wrap = K.wrap;
 
 	var K_GC = imports("k-gc");
 	var src2image = K_GC.src2image;
@@ -116,16 +117,15 @@
 				confirmButton.disabled = true;
 			}
 		});
-		var $remove = div.$remove;
 		//return
-		return extend(div,{
-			onConfirm: confirmEvent.register,
-			onCancel: cancelEvent.register,
+		return extend(wrap(div,{
 			$remove: function(){
 				confirmButton.$remove();
 				cancelButton.$remove();
-				$remove();
 			}
+		}),{
+			onConfirm: confirmEvent.register,
+			onCancel: cancelEvent.register
 		});
 	}
 

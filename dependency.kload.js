@@ -1,6 +1,22 @@
 DEPENDENCIES.K = {
-	"k-math": [
-		"k"
+
+	"k2d-util": [
+		"k",
+		"k-math",
+		"k2d"
+	],
+
+	"k-area": [
+		"k",
+		"k-dom",
+		"k2d",
+		"k2d-util"
+	],
+	"k-area-mouse": [
+		"k",
+		"k-area",
+		"k-dom-mouse",
+		"k.config"
 	],
 	"k-color": [
 		"k",
@@ -15,39 +31,52 @@ DEPENDENCIES.K = {
 	"k-dom": [
 		"k"
 	],
+	"k-dom-keyboard": [
+		"k",
+		"k-dom"
+	],
 	"k-dom-mouse": [
 		"k",
 		"k-dom",
 		"k.config"
 	],
-	"k-dom-keyboard": [
-		"k",
-		"k-dom"
+	"k-math": [
+		"k"
 	],
-	"k-area": [
-		"k",
-		"k-dom",
-		"k2d",
-		"k2d-util"
+	"k-math-rtree": [
+		"k"
 	],
-	"k-area-mouse": [
-		"k",
-		"k-area",
-		"k.config"
-	],
-
-	"k2d-util": [
-		"k",
-		"k-math",
-		"k2d"
+	"k-math-set": [
+		"k"
 	],
 
 	"kw": [
 		"k",
-		"k-css",
-		"k-css-util",
 		"k-dom",
 		"k-dom-mouse",
+		"k-css",
+		"k-css-util",
+		"kw.config"
+	],
+	"kw-area.config": [
+		"kw.config"
+	],
+	"kw-area": [
+		"k",
+		"k-gc",
+		"k-area",
+		"k-dom-mouse",
+		"k-area-mouse",
+		"kw-area.config"
+	],
+	"kw-area-ex.palette": [
+		"k",
+		"k-color",
+		"k-area",
+		"k-area-mouse",
+		"k-gc",
+		"k2d-util",
+		"kw-area",
 		"kw.config"
 	],
 	"kw-ex.album": [
@@ -60,29 +89,11 @@ DEPENDENCIES.K = {
 		"kw",
 		"kw.config"
 	],
-	"kw-ex.palette": [
+	"kw-ex-wrap.palette": [
 		"k",
-		"k-gc",
-		"k-color",
-		"k-dom",
-		"k-dom-mouse",
 		"k-area",
-		"k-area-mouse",
-		"k-css",
-		"k-css-util",
 		"k2d",
-		"k2d-util",
-		"kw",
-		"kw.config"
-	],
-	"kw-area.config": [
-		"kw.config"
-	],
-	"kw-area": [
-		"k",
-		"k-gc",
-		"k-area",
-		"k-area-mouse",
-		"kw-area.config"
+		"k-css-util",
+		"kw-area-ex.palette"
 	]
 };

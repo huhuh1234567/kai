@@ -1,8 +1,9 @@
 (function(){
 
-	function loop(total,block){
+	function loop(total,block,reverse){
 		var rst;
-		for(var i = 0; i<total; i++){
+		var end = reverse?-1:total;
+		for(var i = reverse?total-1:0; i!=end; reverse?i--:i++){
 			if((rst = block(i))!==undefined){
 				return rst;
 			}
@@ -10,13 +11,9 @@
 	}
 
 	function loopArray(arr,block,reverse){
-		var rst;
-		var end = reverse?-1:arr.length;
-		for(var i = reverse?arr.length-1:0; i!=end; reverse?i--:i++){
-			if((rst = block(arr[i],i))!==undefined){
-				return rst;
-			}
-		}
+		return loop(arr.length,function(i){
+			return block(arr[i],i);
+		},reverse);
 	}
 
 	function memset(a,o,val,len){
@@ -42,13 +39,17 @@
 		}
 	}
 
+	function is(obj,type){
+		return Object.prototype.toString.call(obj)==="[object "+type+"]";
+	}
+
 	function insure(val,def){
 		return val===undefined?def:val;
 	}
 
 	function extract(obj,def){
 		var rst = {};
-		loopObject(def,function(k,v){
+		loopObject(def,function(k){
 			rst[k] = insure(obj[k],def[k]);
 		});
 		return rst;
@@ -61,42 +62,66 @@
 		return obj;
 	}
 
-	//链表
-	function List(){
-		var list = {
-			type: "List"
-		};
-		var head$ = null;
-		var tail$ = null;
-		Object.defineProperties(list,{
-			head$: {
-				get: function(){
-					return head$;
+	function wrap(obj,ops,delays){
+		loopObject(ops,function(name,op){
+			if(is(op,"Function")){
+				var oop = obj[name];
+				if(is(oop,"Function")){
+					if(delays&&delays[name]){
+						obj[name] = function(){
+							op.apply(null,arguments);
+							oop&&oop.apply(null,arguments);
+						}
+					}
+					else{
+						obj[name] = function(){
+							oop&&oop.apply(null,arguments);
+							op.apply(null,arguments);
+						}
+					}
 				}
-			},
-			tail$: {
-				get: function(){
-					return tail$;
+				else{
+					obj[name] = op;
 				}
 			}
 		});
+		return obj;
+	}
+
+	//链表
+	function List(){
+		var $ = {
+			length: 0,
+			head$: null,
+			tail$: null
+		};
+		var list = {};
+		loopObject($,function(k){
+			Object.defineProperty(list,k,{
+				get: function(){
+					return $[k];
+				}
+			});
+		});
 		return extend(list,{
+			_k_constructor: List,
 			insert$: function(target$,next$){
-				var previous$ = next$?next$.previous$:tail$;
+				var previous$ = next$?next$.previous$:$.tail$;
 				target$.next$ = next$;
 				target$.previous$ = previous$;
 				if(previous$){
 					previous$.next$ = target$
 				}
 				else{
-					head$ = target$
+					$.head$ = target$
 				}
 				if(next$){
 					next$.previous$ = target$;
 				}
 				else{
-					tail$ = target$;
+					$.tail$ = target$;
 				}
+				$.length++;
 				return target$;
 			},
 			remove$: function(target$){
@@ -106,15 +131,23 @@
 					previous$.next$ = next$;
 				}
 				else{
-					head$ = next$;
+					$.head$ = next$;
 				}
 				if(next$){
 					next$.previous$ = previous$;
 				}
 				else{
-					tail$ = previous$;
+					$.tail$ = previous$;
 				}
+				$.length--;
 				return next$;
+			},
+			$$: function(){
+				var rst = [];
+				for(var current$=$.head$; current$!==null; current$=current$.next$){
+					rst.push(current$.$);
+				}
+				return rst;
 			}
 		});
 	}
@@ -138,6 +171,8 @@
 		}
 	};
 
+	//计数
+
 	//堆栈队列
 	List.push = function(list,value){
 		return list.insert$(List.$(value),null);
@@ -156,11 +191,31 @@
 		return rst;
 	};
 
+	//数组构造
+	List.$$ = function(a){
+		var rst = List();
+		loopArray(a,function(v){
+			List.push(v);
+		});
+		return rst;
+	};
+
 	//判断前后关系
 	List.isBefore$ = function(l$,r$){
 		for(; r$&&r$!==l$; r$ = r$.next$){
 		}
 		return r$===null;
+	};
+
+	//大小
+	List.min = function(list,less){
+		var rst$ = list.head$;
+		List.loop(list.head$,null,function(v,v$){
+			if(less(v,rst$.$)){
+				rst$ = v$;
+			}
+		});
+		return rst$;
 	};
 
 	//排序
@@ -191,10 +246,22 @@
 		return list;
 	};
 
+	List.concat2 = function(list,plus){
+		if(plus){
+			if(plus._k_constructor===List){
+				List.concat(list,plus);
+			}
+			else{
+				List.push(list,plus);
+			}
+		}
+	};
+
 	//事件列表
 	function Event(){
 		var handlers = List();
 		return {
+			_k_constructor: Event,
 			register: function(h){
 				var h$ = List.push(handlers,h);
 				return {
@@ -217,6 +284,7 @@
 			handle.remove();
 			task.apply(null,arguments);
 		});
+		return handle;
 	}
 
 	//并发执行
@@ -229,6 +297,7 @@
 			}
 		}
 		return {
+			_k_constructor: Loader,
 			onDone: function(h){
 				return event.register(h);
 			},
@@ -257,9 +326,11 @@
 	exports.memset = memset;
 	exports.memcpy = memcpy;
 
+	exports.is = is;
 	exports.insure = insure;
 	exports.extract = extract;
 	exports.extend = extend;
+	exports.wrap = wrap;
 
 	exports.List = List;
 

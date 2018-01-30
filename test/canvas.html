@@ -23,8 +23,10 @@
 		var K_AREA = imports("kai/k-area");
 		var Canvas = K_AREA.Canvas;
 		var Area = K_AREA.Area;
+		var Layout = K_AREA.Layout;
+		var View = K_AREA.View;
 		var Layer = K_AREA.Layer;
-		var canvas2area = K_AREA.canvas2area;
+		var global2local = K_AREA.global2local;
 		var registerAreaMouseDown = K_AREA.registerAreaMouseDown;
 		var registerAreaMouseUp = K_AREA.registerAreaMouseUp;
 
@@ -36,6 +38,8 @@
 
 		var K2D = imports("kai/k2d");
 		var matrix2d = K2D.matrix;
+		var transform2d = K2D.transform;
+		var inverse2d = K2D.inverse;
 
 		var K2D_UTIL = imports("kai/k2d-util");
 		var withinRect = K2D_UTIL.withinRect;
@@ -46,6 +50,50 @@
 		full.style["top"] = "0px";
 		full.style["right"] = "0px";
 		full.style["bottom"] = "0px";
+
+		var views = [];
+		loopArray(["#FF0000","#0000FF","#800080","#008080"],function(c,i){
+			var view = Area(View);
+			views[i] = view;
+			view.setDrawHandler(function(gc){
+				fillRect(gc,50,50,c);
+				if(view.isHover){
+					gc.save();
+					gc.globalAlpha = 0.4;
+					fillRect(gc,50,50,"#FFFFFF");
+					gc.restore();
+				}
+			});
+			view.onLeave(view.dirty);
+			view.onEnter(view.dirty);
+			onAreaClick(view,function(e,x,y){
+				var v = global2local(view,[x,y,1]);
+				console.log("sa"+i+"@("+v[0]+","+v[1]+")");
+			});
+		});
+
+		var layers = [];
+		loop(2,function(b){
+			var layer = Layer();
+			layers[b] = layer;
+			layer.setDrawHandler(function(gc){
+				loop(2,function(i){
+					views[b*2+i].setLocalMatrix(matrix2d.rotate(30*(i+1)/180*Math.PI));
+					views[b*2+i].draw(gc);
+				});
+			});
+			layer.setHitHandler(function(x,y){
+				var rst = List();
+				loop(2,function(i){
+					var view = views[b*2+i];
+					var v = transform2d(inverse2d(matrix2d.rotate(30*(i+1)/180*Math.PI)),[x,y,1]);
+					if(withinRect(v[0],v[1],50,50)){
+						List.push(rst,view);
+					}
+				});
+				return rst;
+			});
+		});
 
 		var screen = Canvas();
 		full.appendChild(screen);
@@ -58,88 +106,22 @@
 		registerAreaMouseDown(screen);
 		registerAreaMouseUp(screen);
 
-		var ls = [];
-		loopArray(["#FF0000","#0000FF","#800080","#008080"],function(c,i){
-			var sa = Area();
-			sa.setDrawHandler(function(gc){
-				if(sa.isHover){
-					gc.save();
-					gc.globalAlpha = 0.4;
-					fillRect(gc,50,50,"#FFFFFF");
-					gc.restore();
-				}
-			});
-			sa.onLeave(sa.dirty);
-			sa.onEnter(sa.dirty);
-			onAreaClick(sa,function(x,y){
-				var v = canvas2area(sa,[x,y,1]);
-				console.log("sa"+i+"@("+v[0]+","+v[1]+")");
-			});
-			var l = Layer();
-			l.setDrawHandler(function(gc){
-				fillRect(gc,50,50,c);
-				sa.draw(gc);
-			});
-			l.setHitHandler(function(x,y){
-				if(withinRect(x,y,50,50)){
-					return sa;
-				}
-				else{
-					return null;
-				}
-			});
-			ls[i] = l;
-		});
-
-		var as = [];
-		loop(2,function(b){
-			var a = Area();
-			a.setDrawHandler(function(gc){
-				loop(2,function(i){
-					ls[b*2+i].matrix = matrix2d.rotate(30*(i+1)/180*Math.PI);
-					ls[b*2+i].draw(gc);
-				});
-			});
-			a.setHitHandler(function(x,y){
-				var rst = List();
-				loop(2,function(i){
-					var sa = ls[b*2+i].hit(x,y);
-					sa&&List.push(rst,sa);
-				});
-				return rst;
-			});
-			onAreaClick(a,function(x,y){
-				var v = canvas2area(a,[x,y,1]);
-				console.log("a"+b+"@("+v[0]+","+v[1]+")");
-			});
-			as[b] = a;
-		});
-
-		var layer = Layer();
-		layer.setDrawHandler(function(gc){
+		var root = Area(Layout);
+		screen.setRoot(root);
+		root.setLocalMatrix(matrix2d.unit());
+		root.setDrawHandler(function(gc){
+			fillRect(gc,screen.width,screen.height,"#000000");
 			loop(2,function(b){
-				as[b].matrix = matrix2d.translate(100*(b+1),0);
-				as[b].draw(gc);
+				layers[b].setLocalMatrix(matrix2d.translate(100*(b+1),100));
+				layers[b].draw(gc);
 			});
 		});
-		layer.setHitHandler(function(x,y){
+		root.setHitHandler(function(x,y){
 			var rst = List();
 			loop(2,function(b){
-				if(as[b].hit(x,y).head$!==null){
-					List.push(rst,as[b]);
-				}
+				List.concat(rst,layers[b].hit(x,y));
 			});
 			return rst;
-		});
-
-		screen.setDrawHandler(function(gc){
-			gc.fillStyle = "#000000";
-			gc.fillRect(0,0,screen.width,screen.height);
-			layer.matrix = matrix2d.translate(0,100);
-			layer.draw(gc);
-		});
-		screen.setHitHandler(function(x,y){
-			return layer.hit(x,y);
 		});
 
 		screen.$dirty();
